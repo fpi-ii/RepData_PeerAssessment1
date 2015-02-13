@@ -8,18 +8,121 @@ output:
 
 ## Loading and preprocessing the data
 
+Before loading the file, I have set the working directory to where the data and the markdown file are saved. 
 
+Load the file:
+
+```{r echo = TRUE}
+act <- read.csv("activity.csv", header = TRUE, sep = ",");
+typeof(act);
+head(act);
+```
+
+One column is added to `act', with the intervals as factors (the *date* column is already as factor). These factors are used later to sum and average the data as required by the assignment.
+```{r echo = TRUE}
+act <- cbind(act, intervalAsFactors = as.factor(act$interval));
+head(act);
+```
 
 ## What is mean total number of steps taken per day?
 
+To compute first the total number of steps per day I use the **tapply()** function. Note that the *NA* values are not removed in this step.
 
+```{r echo = TRUE}
+stepsPerDay <- tapply(act$steps, act$date, sum);
+head(stepsPerDay);
+hist(stepsPerDay, breaks=16);
+```
+
+The mean number of steps per day is:
+```{r echo=TRUE}
+mean(stepsPerDay, na.rm = TRUE)
+```
+
+And the median number of steps per day is:
+```{r echo=TRUE}
+median(stepsPerDay, na.rm = TRUE)
+```
 
 ## What is the average daily activity pattern?
 
+Use the same **tapply()** function, but this time remove the *NA* values, otherwise the *mean* computation is non-sensical.
+```{r echo=TRUE}
+avgDailyPattern <- tapply(act$steps, act$intervalAsFactors, mean, na.rm = TRUE)
+```
+Plot the thing out:
+```{r fig.width = 12, echo=TRUE}
+plot(avgDailyPattern, xaxt="n", xlab="Hour", ylab="Average daily number of steps", type = "l")
+axis(1, at=1:288, labels = names(avgDailyPattern))
+```
+
+The hour with the maxium number of steps (on average over all days) is `r names(head(sort(avgDailyPattern, decreasing=TRUE),1))`:
+```{r echo=TRUE}
+head(sort(avgDailyPattern, decreasing=TRUE),1)
+```
+
+## Inputing missing values
+
+The total number of missing values is:
+```{r echo=TRUE}
+sum(is.na(act$steps))
+```
+
+To fill the missing data for the 5 minutes intervals I use the mean of the 5 minutes intervals over the 60+ days. The mean is extracted from the *avgDailyPattern* computed earlier. The new data set is called *actNoNAs*.
+
+```{r echo=TRUE}
+actNoNAs <- act
+for(i in 1:nrow(actNoNAs)){
+  if(is.na(actNoNAs[i,]$steps)){
+    actNoNAs[i,]$steps <- avgDailyPattern[actNoNAs[i,]$intervalAsFactor]
+  }
+}
+```
+
+And the number of missing values in the data is now: `r sum(is.na(actNoNAs$steps))`.
+```{r echo=TRUE}
+sum(is.na(actNoNAs$steps))
+```
+
+Plot the histogram for the total number of steps taken each day using the new data set, compute the mean and the median.
 
 
-## Imputing missing values
+```{r echo = TRUE}
+stepsPerDaynoNA <- tapply(actNoNAs$steps, actNoNAs$date, sum);
+head(stepsPerDaynoNA);
+hist(stepsPerDaynoNA, breaks=16);
+```
 
+The previous computed mean was `r mean(stepsPerDay, na.rm = TRUE)`. The new mean number of steps per day is:
+```{r echo=TRUE}
+mean(stepsPerDaynoNA, na.rm = TRUE)
+```
+
+The previous computed median was `r median(stepsPerDay, na.rm = TRUE)`. And the new median number of steps per day is:
+```{r echo=TRUE}
+median(stepsPerDaynoNA, na.rm = TRUE)
+```
+
+Comparing the two means and the two medians, we observe that the mean value didn't change, which was to be expected since we added mean values to the data.
+
+The median differs slightly because data was added at different positions compared to the previous middle of the data.
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+To the data set where NAs were filled with median data, we add the new factor variable based on the *data* column. Then compute two sets of minute interval averages: one for weekdays, one for weekends. Then plot them.
+
+```{r echo=TRUE}
+actNoNAs <- cbind(actNoNAs, day = as.factor(ifelse(weekdays(as.Date(actNoNAs$date)) %in% c("Saturday", "Sunday"),"weekend", "weekday")))
+stepsPerWeekday <- tapply(subset(actNoNAs, day == "weekday")$steps, subset(actNoNAs, day == "weekday")$interval, mean);
+stepsPerWeekend <- tapply(subset(actNoNAs, day == "weekend")$steps, subset(actNoNAs, day == "weekend")$interval, mean);
+```
+
+```{r fig.width = 12, echo=TRUE}
+plot(stepsPerWeekday, xaxt = "n", xlab = "Hour", ylab = "Weekday", type = "l")
+axis(1, at=1:288, labels = names(stepsPerWeekday))
+plot(stepsPerWeekend, xaxt = "n", xlab = "Hour", ylab = "Weekend", type = "l")
+axis(1, at=1:288, labels = names(stepsPerWeekend))
+
+```
+
